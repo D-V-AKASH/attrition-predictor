@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Employee Attrition Predictor</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: #f0f2f5;
+      color: #333;
+    }
+
+    header {
+      background: #1a1a2e;
+      color: white;
+      padding: 20px 40px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    header h1 { font-size: 22px; font-weight: 600; }
+    header p  { font-size: 13px; opacity: 0.7; }
+
+    .container {
+      max-width: 900px;
+      margin: 30px auto;
+      padding: 0 20px;
+    }
+
+    .card {
+      background: white;
+      border-radius: 12px;
+      padding: 28px;
+      margin-bottom: 24px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+
+    .card h2 {
+      font-size: 16px;
+      font-weight: 600;
+      color: #1a1a2e;
+      margin-bottom: 20px;
+      padding-bottom: 10px;
+      border-bottom: 2px solid #f0f2f5;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+    }
+
+    .field label {
+      display: block;
+      font-size: 12px;
+      font-weight: 500;
+      color: #666;
+      margin-bottom: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .field input,
+    .field select {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1.5px solid #e0e0e0;
+      border-radius: 8px;
+      font-size: 14px;
+      color: #333;
+      background: #fafafa;
+      transition: border-color 0.2s;
+    }
+
+    .field input:focus,
+    .field select:focus {
+      outline: none;
+      border-color: #4361ee;
+      background: white;
+    }
+
+    .btn {
+      width: 100%;
+      padding: 14px;
+      background: #4361ee;
+      color: white;
+      border: none;
+      border-radius: 10px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s;
+      margin-top: 8px;
+    }
+
+    .btn:hover { background: #3451d1; }
+    .btn:disabled { background: #aaa; cursor: not-allowed; }
+
+    /* Result card */
+    #result { display: none; }
+
+    .risk-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 20px;
+    }
+
+    .risk-badge {
+      padding: 8px 20px;
+      border-radius: 20px;
+      font-weight: 700;
+      font-size: 15px;
+    }
+
+    .risk-high { background: #ffe0e0; color: #c0392b; }
+    .risk-low  { background: #e0f7e9; color: #1e8449; }
+
+    .risk-score {
+      font-size: 48px;
+      font-weight: 800;
+      text-align: center;
+      margin: 10px 0;
+    }
+
+    .risk-score.high { color: #c0392b; }
+    .risk-score.low  { color: #1e8449; }
+
+    .risk-label {
+      text-align: center;
+      font-size: 13px;
+      color: #888;
+      margin-bottom: 20px;
+    }
+
+    /* Progress bar */
+    .progress-bar {
+      height: 10px;
+      background: #eee;
+      border-radius: 10px;
+      overflow: hidden;
+      margin-bottom: 24px;
+    }
+
+    .progress-fill {
+      height: 100%;
+      border-radius: 10px;
+      transition: width 0.8s ease;
+    }
+
+    .fill-high { background: linear-gradient(90deg, #f39c12, #c0392b); }
+    .fill-low  { background: linear-gradient(90deg, #27ae60, #1e8449); }
+
+    /* Factors */
+    .factors h3 {
+      font-size: 14px;
+      font-weight: 600;
+      color: #555;
+      margin-bottom: 14px;
+    }
+
+    .factor-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 14px;
+      border-radius: 8px;
+      margin-bottom: 8px;
+      font-size: 14px;
+    }
+
+    .factor-row.up   { background: #fff5f5; border-left: 3px solid #e74c3c; }
+    .factor-row.down { background: #f0fff4; border-left: 3px solid #27ae60; }
+
+    .factor-name { font-weight: 500; }
+
+    .factor-tag {
+      font-size: 12px;
+      padding: 3px 10px;
+      border-radius: 12px;
+      font-weight: 500;
+    }
+
+    .tag-up   { background: #ffe0e0; color: #c0392b; }
+    .tag-down { background: #e0f7e9; color: #1e8449; }
+
+    .loading {
+      text-align: center;
+      padding: 20px;
+      color: #888;
+      font-size: 14px;
+    }
+
+    .error {
+      background: #fff0f0;
+      color: #c0392b;
+      padding: 14px;
+      border-radius: 8px;
+      font-size: 14px;
+      border-left: 3px solid #e74c3c;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>Employee Attrition Predictor</h1>
+    <p>Powered by XGBoost + SHAP Explainability</p>
+  </div>
+</header>
+
+<div class="container">
+
+  <!-- Personal Info -->
+  <div class="card">
+    <h2>Personal Information</h2>
+    <div class="grid">
+      <div class="field">
+        <label>Age</label>
+        <input type="number" id="Age" value="28" min="18" max="65">
+      </div>
+      <div class="field">
+        <label>Gender</label>
+        <select id="Gender">
+          <option>Male</option>
+          <option>Female</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Marital Status</label>
+        <select id="MaritalStatus">
+          <option>Single</option>
+          <option>Married</option>
+          <option>Divorced</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Distance From Home (km)</label>
+        <input type="number" id="DistanceFromHome" value="10" min="1" max="29">
+      </div>
+      <div class="field">
+        <label>Education (1-5)</label>
+        <input type="number" id="Education" value="3" min="1" max="5">
+      </div>
+      <div class="field">
+        <label>Education Field</label>
+        <select id="EducationField">
+          <option>Life Sciences</option>
+          <option>Medical</option>
+          <option>Marketing</option>
+          <option>Technical Degree</option>
+          <option>Human Resources</option>
+          <option>Other</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <!-- Job Info -->
+  <div class="card">
+    <h2>Job Information</h2>
+    <div class="grid">
+      <div class="field">
+        <label>Department</label>
+        <select id="Department">
+          <option>Sales</option>
+          <option>Research & Development</option>
+          <option>Human Resources</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Job Role</label>
+        <select id="JobRole">
+          <option>Sales Representative</option>
+          <option>Sales Executive</option>
+          <option>Laboratory Technician</option>
+          <option>Research Scientist</option>
+          <option>Healthcare Representative</option>
+          <option>Manufacturing Director</option>
+          <option>Research Director</option>
+          <option>Manager</option>
+          <option>Human Resources</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Job Level (1-5)</label>
+        <input type="number" id="JobLevel" value="1" min="1" max="5">
+      </div>
+      <div class="field">
+        <label>Business Travel</label>
+        <select id="BusinessTravel">
+          <option>Travel_Rarely</option>
+          <option>Travel_Frequently</option>
+          <option>Non-Travel</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>OverTime</label>
+        <select id="OverTime">
+          <option>Yes</option>
+          <option>No</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Stock Option Level (0-3)</label>
+        <input type="number" id="StockOptionLevel" value="0" min="0" max="3">
+      </div>
+    </div>
+  </div>
+
+  <!-- Satisfaction -->
+  <div class="card">
+    <h2>Satisfaction & Performance</h2>
+    <div class="grid">
+      <div class="field">
+        <label>Job Satisfaction (1-4)</label>
+        <input type="number" id="JobSatisfaction" value="2" min="1" max="4">
+      </div>
+      <div class="field">
+        <label>Environment Satisfaction (1-4)</label>
+        <input type="number" id="EnvironmentSatisfaction" value="2" min="1" max="4">
+      </div>
+      <div class="field">
+        <label>Work Life Balance (1-4)</label>
+        <input type="number" id="WorkLifeBalance" value="2" min="1" max="4">
+      </div>
+      <div class="field">
+        <label>Job Involvement (1-4)</label>
+        <input type="number" id="JobInvolvement" value="2" min="1" max="4">
+      </div>
+      <div class="field">
+        <label>Relationship Satisfaction (1-4)</label>
+        <input type="number" id="RelationshipSatisfaction" value="2" min="1" max="4">
+      </div>
+      <div class="field">
+        <label>Performance Rating (1-4)</label>
+        <input type="number" id="PerformanceRating" value="3" min="1" max="4">
+      </div>
+    </div>
+  </div>
+
+  <!-- Compensation -->
+  <div class="card">
+    <h2>Compensation</h2>
+    <div class="grid">
+      <div class="field">
+        <label>Monthly Income ($)</label>
+        <input type="number" id="MonthlyIncome" value="2500" min="1000">
+      </div>
+      <div class="field">
+        <label>Daily Rate</label>
+        <input type="number" id="DailyRate" value="500">
+      </div>
+      <div class="field">
+        <label>Hourly Rate</label>
+        <input type="number" id="HourlyRate" value="45">
+      </div>
+      <div class="field">
+        <label>Monthly Rate</label>
+        <input type="number" id="MonthlyRate" value="8000">
+      </div>
+      <div class="field">
+        <label>Percent Salary Hike</label>
+        <input type="number" id="PercentSalaryHike" value="11" min="0" max="25">
+      </div>
+    </div>
+  </div>
+
+  <!-- Experience -->
+  <div class="card">
+    <h2>Experience & Tenure</h2>
+    <div class="grid">
+      <div class="field">
+        <label>Total Working Years</label>
+        <input type="number" id="TotalWorkingYears" value="4" min="0">
+      </div>
+      <div class="field">
+        <label>Years at Company</label>
+        <input type="number" id="YearsAtCompany" value="2" min="0">
+      </div>
+      <div class="field">
+        <label>Years in Current Role</label>
+        <input type="number" id="YearsInCurrentRole" value="1" min="0">
+      </div>
+      <div class="field">
+        <label>Years Since Last Promotion</label>
+        <input type="number" id="YearsSinceLastPromotion" value="1" min="0">
+      </div>
+      <div class="field">
+        <label>Years With Current Manager</label>
+        <input type="number" id="YearsWithCurrManager" value="1" min="0">
+      </div>
+      <div class="field">
+        <label>Num Companies Worked</label>
+        <input type="number" id="NumCompaniesWorked" value="3" min="0">
+      </div>
+      <div class="field">
+        <label>Training Times Last Year</label>
+        <input type="number" id="TrainingTimesLastYear" value="2" min="0">
+      </div>
+    </div>
+  </div>
+
+  <!-- Predict Button -->
+  <button class="btn" onclick="predict()" id="predictBtn">
+    Predict Flight Risk
+  </button>
+
+  <!-- Result -->
+  <div class="card" id="result">
+    <div id="resultContent"></div>
+  </div>
+
+</div>
+
+<script>
+  async function predict() {
+    const btn = document.getElementById('predictBtn');
+    const resultCard = document.getElementById('result');
+    const resultContent = document.getElementById('resultContent');
+
+    // Show loading
+    btn.disabled = true;
+    btn.textContent = 'Analyzing...';
+    resultCard.style.display = 'block';
+    resultContent.innerHTML = '<div class="loading">Running prediction...</div>';
+
+    // Collect form data
+    const payload = {
+      Age:                     parseInt(document.getElementById('Age').value),
+      BusinessTravel:          document.getElementById('BusinessTravel').value,
+      DailyRate:               parseInt(document.getElementById('DailyRate').value),
+      Department:              document.getElementById('Department').value,
+      DistanceFromHome:        parseInt(document.getElementById('DistanceFromHome').value),
+      Education:               parseInt(document.getElementById('Education').value),
+      EducationField:          document.getElementById('EducationField').value,
+      EnvironmentSatisfaction: parseInt(document.getElementById('EnvironmentSatisfaction').value),
+      Gender:                  document.getElementById('Gender').value,
+      HourlyRate:              parseInt(document.getElementById('HourlyRate').value),
+      JobInvolvement:          parseInt(document.getElementById('JobInvolvement').value),
+      JobLevel:                parseInt(document.getElementById('JobLevel').value),
+      JobRole:                 document.getElementById('JobRole').value,
+      JobSatisfaction:         parseInt(document.getElementById('JobSatisfaction').value),
+      MaritalStatus:           document.getElementById('MaritalStatus').value,
+      MonthlyIncome:           parseInt(document.getElementById('MonthlyIncome').value),
+      MonthlyRate:             parseInt(document.getElementById('MonthlyRate').value),
+      NumCompaniesWorked:      parseInt(document.getElementById('NumCompaniesWorked').value),
+      OverTime:                document.getElementById('OverTime').value,
+      PercentSalaryHike:       parseInt(document.getElementById('PercentSalaryHike').value),
+      PerformanceRating:       parseInt(document.getElementById('PerformanceRating').value),
+      RelationshipSatisfaction:parseInt(document.getElementById('RelationshipSatisfaction').value),
+      StockOptionLevel:        parseInt(document.getElementById('StockOptionLevel').value),
+      TotalWorkingYears:       parseInt(document.getElementById('TotalWorkingYears').value),
+      TrainingTimesLastYear:   parseInt(document.getElementById('TrainingTimesLastYear').value),
+      WorkLifeBalance:         parseInt(document.getElementById('WorkLifeBalance').value),
+      YearsAtCompany:          parseInt(document.getElementById('YearsAtCompany').value),
+      YearsInCurrentRole:      parseInt(document.getElementById('YearsInCurrentRole').value),
+      YearsSinceLastPromotion: parseInt(document.getElementById('YearsSinceLastPromotion').value),
+      YearsWithCurrManager:    parseInt(document.getElementById('YearsWithCurrManager').value)
+    };
+
+    try {
+      const response = await fetch('http://127.0.0.1:8000/predict', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      const data = await response.json();
+      displayResult(data);
+
+    } catch (error) {
+      resultContent.innerHTML = `
+        <div class="error">
+          Could not connect to API. Make sure uvicorn is running.<br>
+          <small>${error.message}</small>
+        </div>`;
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Predict Flight Risk';
+    }
+  }
+
+  function displayResult(data) {
+    const isHigh    = data.prediction === 'Will Leave';
+    const riskClass = isHigh ? 'high' : 'low';
+    const badgeClass = isHigh ? 'risk-high' : 'risk-low';
+    const fillClass  = isHigh ? 'fill-high' : 'fill-low';
+    const percent    = Math.round(data.probability * 100);
+
+    const factorsHTML = data.top_factors.map(f => {
+      const isUp = f.direction === 'increases risk';
+      return `
+        <div class="factor-row ${isUp ? 'up' : 'down'}">
+          <span class="factor-name">${f.feature}</span>
+          <span class="factor-tag ${isUp ? 'tag-up' : 'tag-down'}">
+            ${isUp ? '↑ Increases Risk' : '↓ Decreases Risk'}
+          </span>
+        </div>`;
+    }).join('');
+
+    document.getElementById('resultContent').innerHTML = `
+      <div class="risk-header">
+        <h2 style="border:none; margin:0; padding:0">Prediction Result</h2>
+        <span class="risk-badge ${badgeClass}">${data.prediction}</span>
+      </div>
+
+      <div class="risk-score ${riskClass}">${data.flight_risk}</div>
+      <div class="risk-label">Flight Risk Score</div>
+
+      <div class="progress-bar">
+        <div class="progress-fill ${fillClass}" 
+             style="width: ${percent}%">
+        </div>
+      </div>
+
+      <div class="factors">
+        <h3>Top Factors Driving This Prediction</h3>
+        ${factorsHTML}
+      </div>
+    `;
+
+    document.getElementById('result').style.display = 'block';
+    document.getElementById('result').scrollIntoView({ behavior: 'smooth' });
+  }
+</script>
+
+</body>
+</html>
