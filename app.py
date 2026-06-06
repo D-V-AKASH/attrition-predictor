@@ -6,12 +6,14 @@ import numpy as np
 import pandas as pd
 import shap
 from sklearn.preprocessing import LabelEncoder
+import os
 
- #Load saved artifacts 
-model     = pickle.load(open('model.pkl',     'rb'))
-scaler    = pickle.load(open('scaler.pkl',    'rb'))
-threshold = pickle.load(open('threshold.pkl', 'rb'))
-features  = pickle.load(open('features.pkl',  'rb'))
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+model     = pickle.load(open(os.path.join(BASE_DIR, 'model.pkl'),     'rb'))
+scaler    = pickle.load(open(os.path.join(BASE_DIR, 'scaler.pkl'),    'rb'))
+threshold = pickle.load(open(os.path.join(BASE_DIR, 'threshold.pkl'), 'rb'))
+features  = pickle.load(open(os.path.join(BASE_DIR, 'features.pkl'),  'rb'))
 
 #Create SHAP explainer
 explainer = shap.TreeExplainer(model)
